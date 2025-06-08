@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sudoku Master</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f9f9f9;
+      padding: 20px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode {
+      background-color: #222;
+      color: #fff;
+    }
+
+    header img {
+      width: 60px;
+      height: 60px;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #333;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    body.dark-mode h1 {
+      color: #fff;
+    }
+
+    h2 {
+      font-size: 1rem;
+      font-weight: normal;
+      color: #777;
+      margin-bottom: 20px;
+    }
+
+    body.dark-mode h2 {
+      color: #bbb;
+    }
+
+    #sudoku-container {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+      margin-bottom: 20px;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
+      background-color: #fff;
+      padding: 5px;
+      border-radius: 8px;
+      transition: background-color 0.3s;
+    }
+
+    body.dark-mode #sudoku-container {
+      background-color: #333;
+    }
+
+    input, .cell {
+      width: 100%;
+      aspect-ratio: 1;
+      text-align: center;
+      font-size: 1.25rem;
+      border: 1px solid #ccc;
+      transition: transform 0.2s, background-color 0.3s;
+      font-family: inherit;
+    }
+
+    input:focus {
+      outline: 2px solid #4CAF50;
+    }
+
+    .cell.prefilled {
+      background-color: #e0e0e0;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    body.dark-mode .cell.prefilled {
+      background-color: #555;
+      color: #fff;
+    }
+
+    .invalid {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    #message {
+      font-weight: bold;
+      color: #d32f2f;
+      margin-top: 10px;
+    }
+
+    body.dark-mode #message {
+      color: #ff6666;
+    }
+
+    #modal, #input-modal, #username-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    #modal-content, #input-modal-content, #username-modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 90%;
+    }
+
+    body.dark-mode #modal-content, body.dark-mode #input-modal-content, body.dark-mode #username-modal-content {
+      background: #333;
+      color: #fff;
+    }
+
+    #input-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+      margin-bottom: 20px;
+      max-width: 360px;
+    }
+
+    #input-grid input {
+      width: 100%;
+      aspect-ratio: 1;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    #leaderboard {
+      margin-top: 20px;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #leaderboard table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #leaderboard th, #leaderboard td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+
+    body.dark-mode #leaderboard th, body.dark-mode #leaderboard td {
+      border-color: #555;
+    }
+
+    #leaderboard th {
+      background-color: #e0e0e0;
+    }
+
+    body.dark-mode #leaderboard th {
+      background-color: #444;
+    }
+
+    @media (max-width: 600px) {
+      #sudoku-container, #input-grid, #leaderboard {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="text-center mb-3">
+    <img src="https://cdn-icons-png.flaticon.com/512/10486/10486337.png" alt="Sudoku Grid Icon">
+    <h1>Sudoku Master <span id="username-display"></span></h1>
+    <h2>Sharpen your mind with every puzzle!</h2>
+  </header>
+
+  <div class="text-center mb-3">
+    <select id="difficulty" class="form-select d-inline-block w-auto">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <select id="font-style" class="form-select d-inline-block w-auto">
+      <option value="'Segoe UI', sans-serif">Segoe UI</option>
+      <option value="Arial, sans-serif">Arial</option>
+      <option value="'Times New Roman', serif">Times New Roman</option>
+      <option value="'Courier New', monospace">Courier New</option>
+    </select>
+    <input type="range" id="font-size" min="12" max="24" value="20" class="d-inline-block w-auto">
+    <button class="btn btn-dark" id="dark-mode-toggle">🌙 Toggle Dark Mode</button>
+  </div>
+
+  <div id="sudoku-container"></div>
+
+  <div class="text-center mb-3">
+    <button class="btn btn-primary" onclick="generateSudoku()">🆕 New Game</button>
+    <button class="btn btn-success" onclick="checkSolution()">✅ Check</button>
+    <button class="btn btn-warning" onclick="confirmReset()">♻️ Reset</button>
+    <button class="btn btn-danger" onclick="resetStats()">📉 Reset Stats</button>
+    <button class="btn btn-info" onclick="showInputModal()">📝 Input Puzzle</button>
+    <button class="btn btn-secondary" onclick="provideHint()">💡 Hint</button>
+  </div>
+
+  <div class="text-center">
+    <p id="message"></p>
+    <p id="stats"></p>
+    <button class="btn btn-link" onclick="showUsernameModal()">Change Username</button>
+    <div id="leaderboard">
+      <h3>Leaderboard</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Username</th>
+            <th>Difficulty</th>
+            <th>Time (s)</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div id="modal-content">
+      <p>Are you sure you want to reset your inputs?</p>
+      <button class="btn btn-danger" onclick="resetInputs()">Yes</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div id="input-modal">
+    <div id="input-modal-content">
+      <h3>Input Your Puzzle</h3>
+      <p>Enter numbers (1-9) or leave blank for empty cells.</p>
+      <div id="input-grid"></div>
+      <button class="btn btn-primary" onclick="loadCustomPuzzle()">Load Puzzle</button>
+      <button class="btn btn-secondary" onclick="closeInputModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div id="username-modal">
+    <div id="username-modal-content">
+      <h3>Enter Your Username</h3>
+      <input type="text" id="username-input" class="form-control mb-3" placeholder="Your username" maxlength="20">
+      <button class="btn btn-primary" onclick="saveUsername()">Save</button>
+    </div>
+  </div>
+
+  <script>
+    let startTime;
+
+    function startTimer() {
+      startTime = Date.now();
+    }
+
+    function endTimer() {
+      return Math.floor((Date.now() - startTime) / 1000);
+    }
+
+    function updateStats(seconds) {
+      let stats = JSON.parse(localStorage.getItem('sudokuStats')) || {
+        completed: 0,
+        totalTime: 0,
+        fastestTime: null
+      };
+
+      stats.completed++;
+      stats.totalTime += seconds;
+      if (stats.fastestTime === null || seconds < stats.fastestTime) {
+        stats.fastestTime = seconds;
+      }
+
+      localStorage.setItem('sudokuStats', JSON.stringify(stats));
+      updateLeaderboard(seconds);
+      displayStats();
+    }
+
+    function displayStats() {
+      const stats = JSON.parse(localStorage.getItem('sudokuStats')) || {
+        completed: 0,
+        totalTime: 0,
+        fastestTime: null
+      };
+      document.getElementById('stats').innerText =
+        `Puzzles Solved: ${stats.completed} | ` +
+        `Total Time: ${stats.totalTime}s | ` +
+        `Fastest: ${stats.fastestTime ?? '-'}s`;
+    }
+
+    function resetStats() {
+      localStorage.removeItem('sudokuStats');
+      localStorage.removeItem('leaderboard');
+      displayStats();
+      displayLeaderboard();
+    }
+
+    function updateLeaderboard(seconds) {
+      const username = localStorage.getItem('username') || 'Anonymous';
+      const difficulty = document.getElementById('difficulty').value;
+      let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+
+      leaderboard.push({ username, difficulty, time: seconds });
+      leaderboard.sort((a, b) => a.time - b.time);
+      leaderboard = leaderboard.slice(0, 5);
+
+      localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+      displayLeaderboard();
+    }
+
+    function displayLeaderboard() {
+      const leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+      const tbody = document.getElementById('leaderboard-body');
+      tbody.innerHTML = '';
+
+      leaderboard.forEach((entry, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${entry.username}</td>
+          <td>${entry.difficulty.charAt(0).toUpperCase() + entry.difficulty.slice(1)}</td>
+          <td>${entry.time}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function showUsernameModal() {
+      document.getElementById('username-input').value = localStorage.getItem('username') || '';
+      document.getElementById('username-modal').style.display = 'flex';
+    }
+
+    function saveUsername() {
+      const username = document.getElementById('username-input').value.trim();
+      if (username) {
+        localStorage.setItem('username', username);
+        document.getElementById('username-display').innerText = `(${username})`;
+        document.getElementById('username-modal').style.display = 'none';
+      }
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    function updateFontStyle() {
+      const fontStyle = document.getElementById('font-style').value;
+      const fontSize = document.getElementById('font-size').value;
+      document.querySelectorAll('#sudoku-container input, #sudoku-container .cell').forEach(cell => {
+        cell.style.fontFamily = fontStyle;
+        cell.style.fontSize = `${fontSize}px`;
+      });
+      localStorage.setItem('fontStyle', fontStyle);
+      localStorage.setItem('fontSize', fontSize);
+    }
+
+    function generateFullGrid(grid = Array(9).fill().map(() => Array(9).fill(0))) {
+      const isValid = (row, col, num) => {
+        for (let i = 0; i < 9; i++) {
+          if (grid[row][i] === num || grid[i][col] === num) return false;
+          const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+          const boxCol = 3 * Math.floor(col / 3) + (i % 3);
+          if (grid[boxRow][boxCol] === num) return false;
+        }
+        return true;
+      };
+
+      const fill = () => {
+        for (let row = 0; row < 9; row++) {
+          for (let col = 0; col < 9; col++) {
+            if (grid[row][col] === 0) {
+              const nums = [...Array(9).keys()].map(n => n + 1).sort(() => Math.random() - 0.5);
+              for (let num of nums) {
+                if (isValid(row, col, num)) {
+                  grid[row][col] = num;
+                  if (fill()) return true;
+                  grid[row][col] = 0;
+                }
+              }
+              return false;
+            }
+          }
+        }
+        return true;
+      };
+
+      fill();
+      return grid;
+    }
+
+    function generatePuzzle(fullGrid, difficulty) {
+      const puzzle = fullGrid.map(row => [...row]);
+      const clueCounts = { easy: 40, medium: 30, hard: 20 };
+      let attempts = clueCounts[difficulty] || clueCounts.medium;
+
+      while (attempts > 0) {
+        const row = Math.floor(Math.random() * 9);
+        const col = Math.floor(Math.random() * 9);
+
+        if (puzzle[row][col] !== 0) {
+          const backup = puzzle[row][col];
+          puzzle[row][col] = 0;
+
+          const copy = puzzle.map(r => [...r]);
+          let solutions = 0;
+
+          const countSolutions = (r = 0, c = 0) => {
+            if (solutions > 1) return; // Stop if more than one solution found
+            if (r >= 9) {
+              solutions++;
+              return;
+            }
+            const nextR = c === 8 ? r + 1 : r;
+            const nextC = c === 8 ? 0 : c + 1;
+
+            if (copy[r][c] !== 0) {
+              countSolutions(nextR, nextC);
+              return;
+            }
+
+            for (let n = 1; n <= 9; n++) {
+              if (isValid(copy, r, c, n)) {
+                copy[r][c] = n;
+                countSolutions(nextR, nextC);
+                copy[r][c] = 0;
+                if (solutions > 1) break; // Early termination
+              }
+            }
+          };
+
+          const isValid = (grid, row, col, num) => {
+            for (let i = 0; i < 9; i++) {
+              if (grid[row][i] === num || grid[i][col] === num) return false;
+              const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+              const boxCol = 3 * Math.floor(col / 3) + (i % 3);
+              if (grid[boxRow][boxCol] === num) return false;
+            }
+            return true;
+          };
+
+          countSolutions();
+
+          if (solutions !== 1) {
+            puzzle[row][col] = backup;
+            attempts--;
+          }
+        }
+      }
+
+      return puzzle;
+    }
+
+    function generateSudoku() {
+      document.getElementById("message").innerText = "";
+      const fullGrid = generateFullGrid();
+      const difficulty = document.getElementById('difficulty').value;
+      const puzzle = generatePuzzle(fullGrid, difficulty);
+      const container = document.getElementById("sudoku-container");
+      container.innerHTML = "";
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const val = puzzle[r][c];
+          const cell = document.createElement(val === 0 ? "input" : "div");
+
+          if (val === 0) {
+            cell.type = "text";
+            cell.maxLength = 1;
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener("input", (e) => {
+              highlightConflicts();
+              e.target.classList.add('cell-filled');
+              setTimeout(() => e.target.classList.remove('cell-filled'), 300);
+            });
+            cell.addEventListener("keydown", handleKeydown);
+            cell.addEventListener("focus", () => cell.classList.add('focused'));
+            cell.addEventListener("blur", () => cell.classList.remove('focused'));
+          } else {
+            cell.textContent = val;
+            cell.className = "cell prefilled";
+          }
+
+          cell.classList.add("cell");
+          container.appendChild(cell);
+        }
+      }
+
+      window.correctSolution = fullGrid;
+      updateFontStyle();
+      startTimer();
+    }
+
+    function provideHint() {
+      const inputs = Array.from(document.querySelectorAll("#sudoku-container input"));
+      const emptyCells = inputs.filter(input => !input.value);
+      if (emptyCells.length === 0) return;
+
+      const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      const row = parseInt(randomCell.dataset.row);
+      const col = parseInt(randomCell.dataset.col);
+      randomCell.value = window.correctSolution[row][col];
+      randomCell.classList.add('cell-filled');
+      setTimeout(() => randomCell.classList.remove('cell-filled'), 300);
+      highlightConflicts();
+    }
+
+    function showInputModal() {
+      const modal = document.getElementById("input-modal");
+      const grid = document.getElementById("input-grid");
+      grid.innerHTML = "";
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.maxLength = 1;
+          input.dataset.row = r;
+          input.dataset.col = c;
+          grid.appendChild(input);
+        }
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function closeInputModal() {
+      document.getElementById("input-modal").style.display = "none";
+    }
+
+    function loadCustomPuzzle() {
+      const inputs = document.querySelectorAll("#input-grid input");
+      const puzzle = Array(9).fill().map(() => Array(9).fill(0));
+
+      inputs.forEach(input => {
+        const row = parseInt(input.dataset.row);
+        const col = parseInt(input.dataset.col);
+        const value = parseInt(input.value);
+        puzzle[row][col] = isNaN(value) ? 0 : value;
+      });
+
+      const fullGrid = solvePuzzle(puzzle);
+      if (!fullGrid) {
+        document.getElementById("message").innerText = "❌ Invalid puzzle. Please ensure it has a unique solution.";
+        return;
+      }
+
+      const container = document.getElementById("sudoku-container");
+      container.innerHTML = "";
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const val = puzzle[r][c];
+          const cell = document.createElement(val === 0 ? "input" : "div");
+
+          if (val === 0) {
+            cell.type = "text";
+            cell.maxLength = 1;
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener("input", (e) => {
+              highlightConflicts();
+              e.target.classList.add('cell-filled');
+              setTimeout(() => e.target.classList.remove('cell-filled'), 300);
+            });
+            cell.addEventListener("keydown", handleKeydown);
+            cell.addEventListener("focus", () => cell.classList.add('focused'));
+            cell.addEventListener("blur", () => cell.classList.remove('focused'));
+          } else {
+            cell.textContent = val;
+            cell.className = "cell prefilled";
+          }
+
+          cell.classList.add("cell");
+          container.appendChild(cell);
+        }
+      }
+
+      window.correctSolution = fullGrid;
+      updateFontStyle();
+      startTimer();
+      closeInputModal();
+      document.getElementById("message").innerText = "";
+    }
+
+    function solvePuzzle(grid) {
+      const copy = grid.map(row => [...row]);
+      const isValid = (row, col, num) => {
+        for (let i = 0; i < 9; i++) {
+          if (copy[row][i] === num || copy[i][col] === num) return false;
+          const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+          const boxCol = 3 * Math.floor(col / 3) + (i % 3);
+          if (copy[boxRow][boxCol] === num) return false;
+        }
+        return true;
+      };
+
+      const solve = () => {
+        for (let row = 0; row < 9; row++) {
+          for (let col = 0; col < 9; col++) {
+            if (copy[row][col] === 0) {
+              for (let num = 1; num <= 9; num++) {
+                if (isValid(row, col, num)) {
+                  copy[row][col] = num;
+                  if (solve()) return true;
+                  copy[row][col] = 0;
+                }
+              }
+              return false;
+            }
+          }
+        }
+        return true;
+      };
+
+      let solutions = 0;
+      const countSolutions = (r = 0, c = 0) => {
+        if (solutions > 1) return; // Stop if more than one solution found
+        if (r >= 9) {
+          solutions++;
+          return;
+        }
+        const nextR = c === 8 ? r + 1 : r;
+        const nextC = c === 8 ? 0 : c + 1;
+
+        if (copy[r][c] !== 0) {
+          countSolutions(nextR, nextC);
+          return;
+        }
+
+        for (let n = 1; n <= 9; n++) {
+          if (isValid(r, c, n)) {
+            copy[r][c] = n;
+            countSolutions(nextR, nextC);
+            copy[r][c] = 0;
+            if (solutions > 1) break; // Early termination
+          }
+        }
+      };
+
+      countSolutions();
+      if (solutions !== 1) return null;
+
+      solve();
+      return copy;
+    }
+
+    function checkSolution() {
+      const inputs = document.querySelectorAll("#sudoku-container input");
+      let valid = true;
+
+      for (let input of inputs) {
+        const row = parseInt(input.dataset.row);
+        const col = parseInt(input.dataset.col);
+        const value = parseInt(input.value);
+
+        if (isNaN(value) || value !== window.correctSolution[row][col]) {
+          valid = false;
+          break;
+        }
+      }
+
+      if (valid) {
+        updateStats(endTimer());
+        document.getElementById("message").innerText = "✅ Correct Solution!";
+        document.getElementById("message").classList.add('cell-filled');
+        setTimeout(() => document.getElementById("message").classList.remove('cell-filled'), 300);
+      } else {
+        document.getElementById("message").innerText = "❌ Incorrect. Try Again.";
+        document.getElementById("message").classList.add('cell-filled');
+        setTimeout(() => document.getElementById("message").classList.remove('cell-filled'), 300);
+      }
+    }
+
+    function highlightConflicts() {
+      const inputs = document.querySelectorAll("#sudoku-container input");
+      const grid = Array(9).fill().map(() => Array(9).fill(0));
+
+      inputs.forEach(input => {
+        const row = parseInt(input.dataset.row);
+        const col = parseInt(input.dataset.col);
+        const value = parseInt(input.value);
+        grid[row][col] = isNaN(value) ? 0 : value;
+        input.classList.remove("invalid");
+      });
+
+      inputs.forEach(input => {
+        const row = parseInt(input.dataset.row);
+        const col = parseInt(input.dataset.col);
+        const val = grid[row][col];
+        if (val === 0) return;
+
+        for (let i = 0; i < 9; i++) {
+          if ((i !== col && grid[row][i] === val) ||
+              (i !== row && grid[i][col] === val)) {
+            input.classList.add("invalid");
+            return;
+          }
+        }
+
+        const startRow = row - row % 3;
+        const startCol = col - col % 3;
+        for (let i = startRow; i < startRow + 3; i++) {
+          for (let j = startCol; j < startCol + 3; j++) {
+            if ((i !== row || j !== col) && grid[i][j] === val) {
+              input.classList.add("invalid");
+              return;
+            }
+          }
+        }
+      });
+    }
+
+    function handleKeydown(e) {
+      const row = parseInt(e.target.dataset.row);
+      const col = parseInt(e.target.dataset.col);
+      const inputs = Array.from(document.querySelectorAll("#sudoku-container input"));
+
+      const getCellIndex = (r, c) => {
+        return inputs.findIndex(input => 
+          parseInt(input.dataset.row) === r && parseInt(input.dataset.col) === c
+        );
+      };
+
+      let nextIndex;
+      switch (e.key) {
+        case 'ArrowUp':
+          if (row > 0) nextIndex = getCellIndex(row - 1, col);
+          break;
+        case 'ArrowDown':
+          if (row < 8) nextIndex = getCellIndex(row + 1, col);
+          break;
+        case 'ArrowLeft':
+          if (col > 0) nextIndex = getCellIndex(row, col - 1);
+          break;
+        case 'ArrowRight':
+          if (col < 8) nextIndex = getCellIndex(row, col + 1);
+          break;
+        case 'Backspace':
+        case 'Delete':
+          e.target.value = '';
+          highlightConflicts();
+          break;
+        default:
+          if (/^[1-9]$/.test(e.key)) {
+            e.target.value = e.key;
+            highlightConflicts();
+            e.target.classList.add('cell-filled');
+            setTimeout(() => e.target.classList.remove('cell-filled'), 300);
+          }
+          break;
+      }
+
+      if (nextIndex !== undefined && nextIndex >= 0) {
+        inputs[nextIndex].focus();
+      }
+    }
+
+    function confirmReset() {
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    function resetInputs() {
+      const inputs = document.querySelectorAll("#sudoku-container input");
+      inputs.forEach(input => {
+        input.value = "";
+        input.classList.remove("invalid");
+      });
+      closeModal();
+      document.getElementById("message").innerText = "";
+    }
+
+    window.onload = () => {
+      if (!localStorage.getItem('username')) {
+        showUsernameModal();
+      } else {
+        document.getElementById('username-display').innerText = `(${localStorage.getItem('username')})`;
+      }
+      if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+      }
+      if (localStorage.getItem('fontStyle')) {
+        document.getElementById('font-style').value = localStorage.getItem('fontStyle');
+      }
+      if (localStorage.getItem('fontSize')) {
+        document.getElementById('font-size').value = localStorage.getItem('fontSize');
+      }
+      document.getElementById('font-style').addEventListener('change', updateFontStyle);
+      document.getElementById('font-size').addEventListener('input', updateFontStyle);
+      document.getElementById('difficulty').addEventListener('change', generateSudoku);
+      document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+      generateSudoku();
+      displayStats();
+      displayLeaderboard();
+    };
+  </script>
+</body>
+</html>
